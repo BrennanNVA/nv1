@@ -1,0 +1,559 @@
+# Role & Objective
+You are a Senior Quantitative Developer and Machine Learning Engineer. Your goal is to architect "Nova Aetus," an institutional-grade Swing Trading System.
+
+# Core Philosophy
+1.  **Confluence of Factors:** Trades require agreement from Technical, Fundamental, and Sentiment models.
+2.  **Hardware Optimization:** Leverage the local Nvidia 5070 Ti for both XGBoost training and Local LLM (Ollama) inference.
+3.  **Observability:** The system must be chat-queryable via MCP and report health via Discord.
+
+# Technical Stack (Strict Mandates)
+* **Language:** Python 3.12+
+* **Data Engine:** `Polars` (Rust-based DF), `Pydantic` (Validation).
+* **ML Engine:** `XGBoost` (GPU Enabled), `Optuna` (Tuning).
+* **Sentiment:** `Ollama` (Local Llama-3/Mistral via `ollama-python`).
+* **Dashboard:** `Streamlit` + `Plotly`.
+* **Database:** `TimescaleDB` (PostgreSQL) via Docker.
+* **Notifications:** Discord Webhooks.
+* **IDE Integration:** Model Context Protocol (MCP) for DB access.
+
+# Project Structure (The "Src" Layout)
+strict_layout:
+  nova_aetus/
+  ├── .cursorrules           # This file
+  ├── .env                   # API Keys & Webhook URLs
+  ├── config.toml            # Strategy Parameters
+  ├── docker-compose.yml     # DB + MCP Server
+  ├── requirements.txt
+  ├── mcp_server/            # MCP Integration for Cursor
+  │   └── db_connector.py    # Exposes TimescaleDB to Cursor Chat
+  ├── logs/
+  └── src/
+      └── nova/
+          ├── __init__.py
+          ├── main.py
+          ├── core/
+          │   ├── config.py
+          │   ├── logger.py
+          │   └── notifications.py  # Discord/Telegram wrapper
+          ├── data/
+          │   ├── loader.py         # Async Fetchers
+          │   └── storage.py
+          ├── features/
+          │   ├── technical.py      # Polars Indicators
+          │   └── sentiment.py      # Local LLM (Ollama) Analysis
+          ├── models/
+          │   ├── trainer.py        # XGBoost (GPU)
+          │   └── predictor.py
+          ├── strategy/
+          │   ├── risk.py           # Position Sizing / Kill Switch
+          │   └── execution.py
+          └── dashboard/
+              └── app.py
+
+
+# Coding Standards
+1.  **Type Hinting:** Strict `def func(x: int) -> str:` format.
+2.  **Async/Await:** Use `async` for all I/O (Data fetching, DB writes, Discord alerts).
+3.  **Error Handling:** Implementation of a "Circuit Breaker". If errors > 5 in 1 minute, system halts.
+4.  **Docstrings:** Google-style docstrings for all ML logic.
+
+
+# versionlog Standards
+1. Always use versionlog.md to track issues and fixes.
+2. Never delete versionlog.md.
+3. Always add a new version number to the versionlog.md file.
+4. Ensure that the versionlog.md file is always up to date after each change.
+
+
+# XGBoost GPU Optimization (Critical Performance Guidelines)
+## GPU Configuration Best Practices
+1. **Tree Method Selection:**
+   - Use `tree_method="hist"` with `device="cuda"` for GPU acceleration (XGBoost 2.0+)
+   - For older versions, use `tree_method="gpu_hist"` explicitly
+   - Never use `tree_method="exact"` or `"approx"` on GPU - these are CPU-only
+
+2. **GPU Memory Management:**
+   - Enable `max_bin=512` (default) for histogram-based training
+   - Use `gpu_id=0` to specify GPU device (defaults to first GPU)
+   - For multi-GPU: Use `n_gpus=-1` to use all available GPUs (requires Dask for distributed)
+   - Monitor GPU memory: XGBoost keeps histograms in memory - reduce `max_bin` if OOM errors occur
+
+3. **Performance Optimization:**
+   - Use `predictor="gpu_predictor"` for inference on GPU (faster than CPU)
+   - Enable `single_precision_histogram=True` on older GPU architectures for speed
+   - Use `QuantileDMatrix` for large datasets with external memory support
+   - Batch predictions: Process multiple samples together for better GPU utilization
+
+4. **Hyperparameter Tuning for GPU:**
+   - GPU training benefits from larger `n_estimators` (100-1000) due to speed
+   - Use Optuna with `TPESampler` and `MedianPruner` for efficient search
+   - Enable `XGBoostPruningCallback` in Optuna trials for early termination
+   - GPU training is 10-46x faster than CPU - leverage this for more trials
+
+5. **Model Persistence:**
+   - Save models with `.save_model()` - includes GPU configuration
+   - Load models with `.load_model()` - automatically detects GPU availability
+   - For production inference, ensure GPU is available or fallback to CPU gracefully
+
+
+## NPMM Labeling Methodology (Research-Backed)
+1. **N-Period Min-Max Labeling:**
+   - Generates labels only at definitive local minima/maxima (not fixed horizons)
+   - Dramatically improves signal quality over fixed-horizon labels
+   - Default `n_period=5` and `threshold_pct=0.02` (2% minimum move)
+   - Labels: 1 (BUY at local min), -1 (SELL at local max), 0 (HOLD)
+
+2. **Implementation Pattern:**
+   - Use `NPMMLabeler.generate_binary_labels()` for classification tasks
+   - Use `NPMMLabeler.generate_labels()` for full swing signal generation
+   - Always filter out invalid labels (last `n_period` rows have no future data)
+   - Time-based splits (no shuffling) for time series data
+
+3. **Walk-Forward Validation:**
+   - Use purged k-fold CV with `purge_gap=5` to prevent data leakage
+   - Train on period 1, test on period 2, slide forward
+   - Never use standard k-fold CV for time series (causes look-ahead bias)
+
+
+# Polars Performance Best Practices (Critical for Data Pipeline)
+## DataFrame Operations
+1. **Lazy Evaluation:**
+   - Use `pl.scan_*` for lazy operations - builds query plan without execution
+   - Chain operations: `df.lazy().filter().select().collect()` - single pass
+   - Lazy evaluation enables query optimization and parallel execution
+
+2. **Streaming for Large Datasets:**
+   - Use `.streaming()` for datasets > RAM size
+   - Enables chunked processing without loading entire dataset
+   - Critical for processing years of OHLCV data efficiently
+
+3. **Vectorized Operations:**
+   - Always use Polars expressions: `pl.col("close").rolling_mean(20)` not loops
+   - Batch column operations: `df.with_columns([...])` processes all at once
+   - Use `over()` for grouped operations by symbol: `pl.col("close").mean().over("symbol")`
+
+4. **Memory Efficiency:**
+   - Use appropriate dtypes: `pl.Int64` for volume, `pl.Float64` for prices
+   - Cast early: `df.with_columns(pl.col("volume").cast(pl.Int64))`
+   - Use `select()` to drop unused columns before expensive operations
+
+5. **Time Series Specific:**
+   - Set `timestamp` column as datetime: `pl.col("timestamp").cast(pl.Datetime)`
+   - Use `sort("timestamp")` before rolling operations
+   - Leverage `group_by_dynamic()` for time-based grouping (e.g., by day/hour)
+
+6. **Performance Targets:**
+   - Single indicator calculation: < 1ms for 10K rows
+   - Multi-indicator suite (88 indicators): < 10ms for 10K rows
+   - Feature generation pipeline: < 100ms for 1 year of daily data (252 rows)
+
+
+# TimescaleDB Optimization (Financial Time Series Database)
+## Hypertable Configuration
+1. **Hypertable Creation:**
+   - Always partition by `timestamp` column: `create_hypertable('table', 'timestamp')`
+   - Use chunk_time_interval: `INTERVAL '1 day'` for daily data, `INTERVAL '1 hour'` for hourly
+   - Enable compression: `ALTER TABLE ... SET (timescaledb.compress, timescaledb.compress_segmentby='symbol')`
+
+2. **Continuous Aggregates:**
+   - Pre-aggregate OHLCV data: `CREATE MATERIALIZED VIEW ohlcv_1hour AS ...`
+   - Refresh policies: `add_continuous_aggregate_policy('ohlcv_1hour', ...)`
+   - Use for dashboard queries - 100x faster than raw data queries
+
+3. **Compression Policies:**
+   - Enable compression after 7 days: `add_compression_policy('market_bars', INTERVAL '7 days')`
+   - Segment by `symbol` for better compression ratios (90x reduction typical)
+   - Compression is automatic - no application code changes needed
+
+4. **Query Optimization:**
+   - Use time-based WHERE clauses: `WHERE timestamp > NOW() - INTERVAL '1 year'`
+   - Index on `(symbol, timestamp DESC)` for symbol-specific queries
+   - Use `time_bucket()` for time-based aggregations: `SELECT time_bucket('1 day', timestamp) ...`
+
+5. **Connection Pooling:**
+   - Use `asyncpg.create_pool()` with `min_size=2, max_size=10` (configurable)
+   - Reuse connections - never create new connection per query
+   - Set `command_timeout=30` to prevent hanging queries
+
+6. **Bulk Operations:**
+   - Use `executemany()` for batch inserts: `await conn.executemany(INSERT_SQL, records)`
+   - Batch size: 1000-10000 rows per transaction
+   - Use `COPY` for very large bulk loads (millions of rows)
+
+
+# Fractional Differencing (Lopez de Prado Methodology)
+## Stationarity Without Memory Loss
+1. **Purpose:**
+   - Traditional differencing (d=1) removes all memory from price series
+   - Fractional differencing (d=0.3-0.5) achieves stationarity while preserving memory
+   - Critical for ML models that need both stationarity and price context
+
+2. **Implementation:**
+   - Use `fractional_diff()` with `d=0.5` for price series (typical range: 0.3-0.7)
+   - Apply to price-based features: `close`, `sma_20`, `sma_50`, `obv`
+   - Use `threshold=1e-5` to cut off negligible weights (performance optimization)
+
+3. **Feature Engineering:**
+   - Apply FFD to: `close`, `sma_20`, `sma_50`, `sma_200`, `ema_9`, `ema_21`, `obv`
+   - Do NOT apply to: `rsi`, `macd`, `stoch_k` (already stationary)
+   - Suffix transformed columns: `close_ffd`, `sma_20_ffd`, etc.
+
+4. **Validation:**
+   - Check stationarity with ADF test after FFD (optional, for verification)
+   - Monitor feature importance - FFD features should rank highly
+   - Compare model performance with/without FFD (typically improves Sharpe ratio)
+
+
+# Confluence Layer (Multi-Signal Combination)
+## Signal Integration Best Practices
+1. **Signal Normalization:**
+   - All signals must be z-score normalized to [-1, 1] range for combination
+   - Use rolling window for normalization: `mean` and `std` over last 20 periods
+   - Clip extreme values: `np.clip(zscore, -3, 3) / 3` to prevent outliers
+
+2. **Regime-Aware Weighting:**
+   - Detect market regime: Bullish, Bearish, High Volatility, Low Volatility, Trending, Mean Reverting
+   - Adjust signal weights based on regime (see `REGIME_WEIGHTS` in confluence.py)
+   - Technical signals weight higher in trending/high-volatility regimes
+   - Fundamental signals weight higher in bearish/low-volatility regimes
+
+3. **IC-Based Adaptive Weighting:**
+   - Track Information Coefficient (IC) for each signal type over time
+   - Calculate IC as correlation between predicted and actual returns
+   - Use IC-weighted combination when sufficient history (20+ periods)
+   - Rebalance weights monthly based on rolling IC performance
+
+4. **Confidence Calculation:**
+   - High confidence when all 3 signals agree in direction (0.9)
+   - Medium confidence when 2 agree, 1 neutral (0.75)
+   - Low confidence when signals disagree (0.4)
+   - Adjust by average signal strength: `confidence = base_confidence * (0.5 + 0.5 * avg_strength)`
+
+5. **Minimum Thresholds:**
+   - Require `min_confluence_threshold=0.3` for signal generation
+   - Only execute trades when confluence score exceeds threshold
+   - Higher threshold = fewer trades but higher quality signals
+
+
+# Async Python Patterns (Trading System Concurrency)
+## Async/Await Best Practices
+1. **I/O Operations:**
+   - ALL database operations: `async def store_bars(...)` with `asyncpg`
+   - ALL API calls: `async def fetch_historical_bars(...)` with `aiohttp` or `alpaca-py`
+   - ALL external services: Discord webhooks, Ollama LLM calls
+
+2. **Blocking Operations:**
+   - Wrap blocking calls in executor: `await loop.run_in_executor(None, blocking_func)`
+   - Critical for: `ollama.generate()` (synchronous), pandas operations, file I/O
+   - Use thread pool: `executor = ThreadPoolExecutor(max_workers=10)`
+
+3. **Concurrent Operations:**
+   - Use `asyncio.gather()` for parallel independent operations
+   - Example: `results = await asyncio.gather(*[fetch_symbol(s) for s in symbols])`
+   - Limit concurrency with semaphore: `semaphore = asyncio.Semaphore(10)`
+
+4. **Rate Limiting:**
+   - Use `RateLimiter` class with sliding window algorithm
+   - Configure per-service: Alpaca API (200 req/min), Ollama (5 concurrent)
+   - Implement exponential backoff: `await asyncio.sleep(2 ** attempt)`
+
+5. **Error Handling:**
+   - Use `try/except` with specific exception types
+   - Log errors with context: `logger.error(f"Failed to fetch {symbol}: {e}")`
+   - Circuit breaker: Track errors per minute, halt if > 5 errors
+
+6. **Resource Management:**
+   - Use connection pools: `pool = await asyncpg.create_pool(...)`
+   - Context managers: `async with pool.acquire() as conn: ...`
+   - Cleanup on shutdown: `await pool.close()` in signal handlers
+
+
+# Circuit Breaker Pattern (Error Handling & System Protection)
+## Multi-Level Circuit Breaker
+1. **Error Tracking:**
+   - Track errors with timestamps in sliding window (60 seconds)
+   - Count errors per component: Database, API, Sentiment, ML Model
+   - Reset window after timeout period expires
+
+2. **Breach Levels:**
+   - **WARN**: 3 errors in 60s - Log warning, continue operation
+   - **SOFT_HALT**: 5 errors in 60s - Stop new trades, continue monitoring
+   - **HARD_HALT**: 10 errors in 60s - Complete system shutdown
+
+3. **Recovery:**
+   - Auto-recovery after error-free period (5 minutes)
+   - Manual reset via health endpoint: `POST /health/reset_circuit_breaker`
+   - Notification on breach: Discord alert with error details
+
+4. **Implementation:**
+   - Use `CircuitBreaker` class in `src/nova/core/health.py`
+   - Check before critical operations: `if circuit_breaker.is_open(): return`
+   - Record errors: `circuit_breaker.record_error(component="database")`
+
+
+# Optuna Hyperparameter Optimization
+## Efficient Hyperparameter Search
+1. **Study Configuration:**
+   - Use `TPESampler` for efficient search (Tree-structured Parzen Estimator)
+   - Set `direction="maximize"` for accuracy/Sharpe ratio
+   - Use `MedianPruner` with `n_warmup_steps=10` for early stopping
+
+2. **Pruning Callbacks:**
+   - Enable `XGBoostPruningCallback` in Optuna trials
+   - Prunes unpromising trials early (saves 50-80% compute time)
+   - Monitor metric: `validation_0-logloss` or `validation_0-error`
+
+3. **Search Space:**
+   - `n_estimators`: 100-1000 (integer)
+   - `max_depth`: 3-10 (integer)
+   - `learning_rate`: 0.01-0.3 (log scale)
+   - `subsample`: 0.6-1.0 (float)
+   - `colsample_bytree`: 0.6-1.0 (float)
+   - `reg_alpha`, `reg_lambda`: 1e-8 to 1.0 (log scale)
+
+4. **Trial Management:**
+   - Set `n_trials=100` for initial search (configurable)
+   - Set `timeout=3600` (1 hour) for time-bounded search
+   - Use `study.optimize(..., show_progress_bar=True)` for monitoring
+
+5. **Best Practices:**
+   - Run optimization on GPU for 10-46x speedup
+   - Use walk-forward validation to prevent overfitting
+   - Re-optimize quarterly as market regimes change
+
+
+# Risk Management (Position Sizing & Capital Protection)
+## Kelly Criterion & Position Sizing
+1. **Fractional Kelly:**
+   - Use fractional Kelly (25-50% of full Kelly) to reduce volatility
+   - Formula: `f* = (p * b - q) / b` where `p`=win rate, `b`=avg win/avg loss, `q`=1-p
+   - Constrain to max position size: `min(fractional_kelly, max_position_size_pct)`
+
+2. **Risk Per Trade:**
+   - Default: 2% of capital per trade (`risk_per_trade_pct=0.02`)
+   - Calculate position size: `shares = (capital * risk_pct) / (entry_price - stop_loss)`
+   - Never risk more than `max_portfolio_risk_pct=0.20` (20% total portfolio)
+
+3. **Stop Loss Placement:**
+   - Use ATR-based stops: `stop_loss = entry_price ± (atr * atr_stop_multiplier)`
+   - Default multiplier: 2.0x ATR (configurable)
+   - Trailing stops: Enable `trailing_stop_enabled=True` with 5% trailing distance
+
+4. **Drawdown Protection:**
+   - Track peak equity: Update on each profitable trade
+   - Check drawdown: `drawdown = (peak_equity - current_equity) / peak_equity`
+   - Halt trading if `drawdown > max_drawdown_pct` (default 10%)
+   - Reset peak equity after recovery period (30 days)
+
+5. **Position Limits:**
+   - Max position size: 10% of capital per symbol (`max_position_size_pct=0.10`)
+   - Max open positions: 10 concurrent positions (configurable)
+   - Sector concentration: Limit 20% per sector (future enhancement)
+
+
+# Sentiment Analysis (Ollama LLM Integration)
+## Local LLM Best Practices
+1. **Model Selection:**
+   - Use `llama3` (8B or 70B) for general financial sentiment
+   - Use `mistral` for faster inference (lower latency)
+   - Configure in `config.toml`: `model_name = "llama3"`
+
+2. **Prompt Engineering:**
+   - Use FinGPT-style prompts for financial domain specificity
+   - Include context: Symbol, news type (headline/earnings/social), date
+   - Request structured output: JSON with `sentiment`, `score`, `confidence`
+
+3. **Async Execution:**
+   - Wrap `ollama.generate()` in executor: `await loop.run_in_executor(None, ollama.generate, ...)`
+   - Use semaphore to limit concurrent requests: `semaphore = asyncio.Semaphore(5)`
+   - Batch processing: `analyze_news_batch()` for multiple articles
+
+4. **Aggregation:**
+   - Weight by confidence: `weighted_score = sum(score * confidence) / sum(confidence)`
+   - Time decay: Recent news weighted higher than old news
+   - Source weighting: Earnings > News > Social media
+
+5. **Error Handling:**
+   - Retry on timeout: 3 attempts with exponential backoff
+   - Fallback to neutral sentiment (0.0) on failure
+   - Log errors but don't halt system (sentiment is supplementary signal)
+
+
+# Model Context Protocol (MCP) Integration
+## Database Query Interface
+1. **MCP Server:**
+   - Expose TimescaleDB via `mcp_server/db_connector.py`
+   - Enable natural language queries from Cursor chat
+   - Tools: `query_portfolio`, `query_signals`, `query_health`, `execute_sql`
+
+2. **Security:**
+   - Validate all SQL queries: `SQLQueryValidator.validate_query()`
+   - Whitelist allowed tables: `market_bars`, `signals`, `positions`, `features`
+   - Prevent SQL injection: Parameterized queries only, no string concatenation
+
+3. **Query Patterns:**
+   - Portfolio queries: `SELECT * FROM positions WHERE status='open'`
+   - Signal queries: `SELECT * FROM signals WHERE symbol='AAPL' ORDER BY timestamp DESC LIMIT 10`
+   - Health queries: `SELECT COUNT(*) FROM market_bars WHERE timestamp > NOW() - INTERVAL '1 hour'`
+
+4. **Performance:**
+   - Use continuous aggregates for dashboard queries
+   - Limit result sets: `LIMIT 1000` on all queries
+   - Cache frequent queries (future enhancement)
+
+
+# Testing & Validation Patterns
+## Unit Testing
+1. **Test Structure:**
+   - Use `pytest` with `pytest-asyncio` for async tests
+   - Place tests in `tests/unit/` directory
+   - Use fixtures: `@pytest.fixture` for test data and mocks
+
+2. **Test Coverage:**
+   - Test all validators: `test_validation.py`
+   - Test retry logic: `test_retry.py`
+   - Test circuit breaker: `test_circuit_breaker.py` (future)
+   - Aim for 80%+ coverage on core modules
+
+3. **Mocking:**
+   - Mock external APIs: Alpaca, Yahoo Finance, Ollama
+   - Mock database: Use `asyncpg` test fixtures
+   - Mock time: Use `freezegun` for time-dependent tests
+
+## Backtesting & Validation
+1. **Walk-Forward Analysis:**
+   - Train on period 1, test on period 2
+   - Slide forward: `start_idx += test_period`
+   - Never shuffle time series data
+
+2. **Statistical Validation:**
+   - Deflated Sharpe Ratio (DSR): Adjust for multiple testing
+   - Probabilistic Sharpe Ratio (PSR): Confidence interval for Sharpe
+   - Probability of Backtest Overfitting (PBO): CSCV method
+
+3. **Performance Metrics:**
+   - Sharpe Ratio: Target > 1.5 (good), > 2.0 (excellent)
+   - Win Rate: 45-55% acceptable with proper risk/reward
+   - Profit Factor: > 1.5 (gross profit / gross loss)
+   - Maximum Drawdown: < 10% for swing trading
+
+
+# Performance Optimization Checklist
+## Before Production Deployment
+1. **Database:**
+   - [ ] Hypertables created with proper chunk intervals
+   - [ ] Compression policies enabled (7+ days old)
+   - [ ] Continuous aggregates created (1m, 1h, 1d)
+   - [ ] Indexes on (symbol, timestamp) for queries
+   - [ ] Connection pool configured (min=2, max=10)
+
+2. **ML Pipeline:**
+   - [ ] GPU acceleration verified: `device="cuda"` works
+   - [ ] Model trained with NPMM labeling
+   - [ ] Optuna optimization completed (100+ trials)
+   - [ ] Walk-forward validation passed
+   - [ ] Model saved with metadata
+
+3. **Data Pipeline:**
+   - [ ] Polars lazy evaluation enabled for large datasets
+   - [ ] Streaming enabled for datasets > RAM
+   - [ ] Feature generation < 100ms for 1 year data
+   - [ ] Batch operations for database writes
+
+4. **Concurrency:**
+   - [ ] Rate limiters configured per service
+   - [ ] Semaphores limit concurrent operations
+   - [ ] Circuit breaker tested and working
+   - [ ] Graceful shutdown handles cleanup
+
+5. **Monitoring:**
+   - [ ] Health endpoints responding (`/health`, `/health/live`, `/health/ready`)
+   - [ ] Prometheus metrics exposed
+   - [ ] Discord notifications working
+   - [ ] MCP server accessible from Cursor
+
+
+# Architecture Patterns (Reference Implementation)
+## Data Flow Pattern
+```
+External APIs → DataLoader (async) → TimescaleDB (hypertable)
+                                    ↓
+                            Feature Pipeline (Polars)
+                                    ↓
+                    Technical Features + Sentiment + Fundamental
+                                    ↓
+                            Confluence Layer (regime-aware)
+                                    ↓
+                        Risk Manager (Kelly Criterion)
+                                    ↓
+                            Execution Engine (Alpaca)
+                                    ↓
+                    Positions → Storage → Dashboard/MCP
+```
+
+## Error Handling Pattern
+```python
+try:
+    result = await operation()
+except SpecificError as e:
+    logger.error(f"Operation failed: {e}")
+    circuit_breaker.record_error(component="operation")
+    if circuit_breaker.is_open():
+        await notifications.send_alert("Circuit breaker opened")
+        raise SystemHalt("Too many errors")
+    raise
+```
+
+## Async Pattern
+```python
+async def process_symbols(symbols: list[str]) -> dict:
+    semaphore = asyncio.Semaphore(10)  # Limit concurrency
+
+    async def process_one(symbol: str):
+        async with semaphore:
+            return await fetch_and_process(symbol)
+
+    tasks = [process_one(s) for s in symbols]
+    return dict(zip(symbols, await asyncio.gather(*tasks)))
+```
+
+
+# Knowledge Base References
+## Research Papers & Methodologies
+1. **NPMM Labeling:** "A machine learning trading system for the stock market based on N-period Min-Max labeling using XGBoost" (ESWA, 2023)
+2. **Fractional Differencing:** "Advances in Financial Machine Learning" (Lopez de Prado, 2018)
+3. **Confluence Signals:** "Value and Momentum Everywhere" (Asness, Moskowitz, Pedersen, 2013)
+4. **Statistical Validation:** "The Deflated Sharpe Ratio" (Bailey & Lopez de Prado, 2014)
+
+## Latest Research Findings (2025)
+**CRITICAL**: See `knowledge/research_best_practices_2025.md` for comprehensive research findings including:
+- XGBoost QuantileDMatrix & ExtMemQuantileDMatrix for large datasets (>1TB support)
+- Polars streaming API (2-7× faster than in-memory for large datasets)
+- TimescaleDB continuous aggregates refresh policy optimization
+- Top-performing technical indicators (Squeeze_pro, PPO, MACD, ROC63, RSI63)
+- asyncpg connection pooling best practices
+- Prometheus/Grafana observability patterns
+
+**Key Performance Gains Discovered**:
+- XGBoost GPU: 10-46× speedup with proper configuration
+- Polars Streaming: 2-7× faster than in-memory for datasets > RAM
+- TimescaleDB CAGGs: 100× faster queries vs raw data
+- Proper asyncpg pooling: Prevents connection exhaustion under high concurrency
+
+## Key Files Reference
+- **Technical Indicators:** `src/nova/features/technical.py` (88+ indicators, FFD, z-score)
+- **ML Training:** `src/nova/models/trainer.py` (NPMM, GPU XGBoost, Optuna)
+- **Confluence:** `src/nova/strategy/confluence.py` (regime-aware signal combination)
+- **Risk Management:** `src/nova/strategy/risk.py` (Kelly Criterion, drawdown protection)
+- **Data Storage:** `src/nova/data/storage.py` (TimescaleDB, hypertables, aggregates)
+- **Sentiment:** `src/nova/features/sentiment.py` (Ollama LLM, FinGPT prompts)
+- **Research:** `knowledge/research_best_practices_2025.md` (Latest 2025 findings)
+
+## Configuration Reference
+- **Main Config:** `config.toml` (all system parameters)
+- **Environment:** `.env` (API keys, webhooks - never commit)
+- **Docker:** `docker-compose.yml` (TimescaleDB, Prometheus, Grafana)
+
+
+# Immediate Task
+Initialize this folder structure. Create the `requirements.txt` including `ollama`, `discord-webhook`, `polars`, `xgboost`, and `asyncpg`.

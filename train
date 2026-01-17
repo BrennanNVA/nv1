@@ -1,0 +1,12 @@
+#!/bin/bash
+# Ultra-short command wrapper for training
+# Usage:
+#   ./train                 # Train AAPL with 3 years (default)
+#   ./train all             # Train all symbols with 5 years (default)
+#   ./train AAPL            # Train AAPL with 3 years
+#   ./train AAPL 5          # Train AAPL with 5 years
+#   ./train all 5           # Train all symbols with 5 years
+#   ./train AAPL MSFT 5     # Train multiple symbols
+
+cd "$(dirname "$0")"
+./START_TRAINING.sh "$@"

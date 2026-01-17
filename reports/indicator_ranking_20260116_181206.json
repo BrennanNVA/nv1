@@ -1,0 +1,460 @@
+{
+  "timestamp": "2026-01-16T18:12:06.347009",
+  "symbols": [
+    "AAPL"
+  ],
+  "years": 5,
+  "top_n": 30,
+  "rankings": [
+    {
+      "feature_name": "ema_9",
+      "importance": 8.988719940185547,
+      "rank": 1,
+      "category": "Moving Average",
+      "research_rank": null
+    },
+    {
+      "feature_name": "squeeze_pro_zscore",
+      "importance": 7.104743957519531,
+      "rank": 2,
+      "category": "Volatility Squeeze",
+      "research_rank": 1
+    },
+    {
+      "feature_name": "sma_200_ffd",
+      "importance": 6.984989643096924,
+      "rank": 3,
+      "category": "Moving Average",
+      "research_rank": null
+    },
+    {
+      "feature_name": "atr",
+      "importance": 5.690816879272461,
+      "rank": 4,
+      "category": "Volatility (ATR)",
+      "research_rank": null
+    },
+    {
+      "feature_name": "close_ffd",
+      "importance": 5.541872024536133,
+      "rank": 5,
+      "category": "Fractional Diff",
+      "research_rank": null
+    },
+    {
+      "feature_name": "price_sma200_pct",
+      "importance": 5.465638160705566,
+      "rank": 6,
+      "category": "Moving Average",
+      "research_rank": null
+    },
+    {
+      "feature_name": "squeeze_momentum_zscore",
+      "importance": 5.239734172821045,
+      "rank": 7,
+      "category": "Volatility Squeeze",
+      "research_rank": null
+    },
+    {
+      "feature_name": "sma_20_ffd",
+      "importance": 5.227168560028076,
+      "rank": 8,
+      "category": "Moving Average",
+      "research_rank": null
+    },
+    {
+      "feature_name": "squeeze",
+      "importance": 4.897933006286621,
+      "rank": 9,
+      "category": "Volatility Squeeze",
+      "research_rank": null
+    },
+    {
+      "feature_name": "sma_20",
+      "importance": 4.770071983337402,
+      "rank": 10,
+      "category": "Moving Average",
+      "research_rank": null
+    },
+    {
+      "feature_name": "ema_21_ffd",
+      "importance": 4.644369602203369,
+      "rank": 11,
+      "category": "Moving Average",
+      "research_rank": null
+    },
+    {
+      "feature_name": "atr_zscore",
+      "importance": 4.598468780517578,
+      "rank": 12,
+      "category": "Volatility (ATR)",
+      "research_rank": null
+    },
+    {
+      "feature_name": "bb_lower",
+      "importance": 4.564797878265381,
+      "rank": 13,
+      "category": "Volatility (BB)",
+      "research_rank": null
+    },
+    {
+      "feature_name": "rsi_63",
+      "importance": 4.413022518157959,
+      "rank": 14,
+      "category": "Momentum",
+      "research_rank": 5
+    },
+    {
+      "feature_name": "price_sma50_pct_zscore",
+      "importance": 4.36197566986084,
+      "rank": 15,
+      "category": "Moving Average",
+      "research_rank": null
+    },
+    {
+      "feature_name": "bb_upper",
+      "importance": 4.31923246383667,
+      "rank": 16,
+      "category": "Volatility (BB)",
+      "research_rank": null
+    },
+    {
+      "feature_name": "sma_50",
+      "importance": 4.2807769775390625,
+      "rank": 17,
+      "category": "Moving Average",
+      "research_rank": null
+    },
+    {
+      "feature_name": "sma_200",
+      "importance": 4.230651378631592,
+      "rank": 18,
+      "category": "Moving Average",
+      "research_rank": null
+    },
+    {
+      "feature_name": "kc_upper",
+      "importance": 4.228806495666504,
+      "rank": 19,
+      "category": "Volatility (KC)",
+      "research_rank": null
+    },
+    {
+      "feature_name": "adx_zscore",
+      "importance": 4.071078777313232,
+      "rank": 20,
+      "category": "Trend (ADX)",
+      "research_rank": null
+    },
+    {
+      "feature_name": "natr_zscore",
+      "importance": 4.024840354919434,
+      "rank": 21,
+      "category": "Volatility (ATR)",
+      "research_rank": null
+    },
+    {
+      "feature_name": "price_sma50_pct",
+      "importance": 3.9135942459106445,
+      "rank": 22,
+      "category": "Moving Average",
+      "research_rank": null
+    },
+    {
+      "feature_name": "minus_di",
+      "importance": 3.9062352180480957,
+      "rank": 23,
+      "category": "Trend (ADX)",
+      "research_rank": null
+    },
+    {
+      "feature_name": "return_20d",
+      "importance": 3.858447551727295,
+      "rank": 24,
+      "category": "Returns",
+      "research_rank": null
+    },
+    {
+      "feature_name": "ppo",
+      "importance": 3.7253763675689697,
+      "rank": 25,
+      "category": "Momentum",
+      "research_rank": 2
+    },
+    {
+      "feature_name": "roc_63",
+      "importance": 3.681405782699585,
+      "rank": 26,
+      "category": "Momentum",
+      "research_rank": 4
+    },
+    {
+      "feature_name": "ema_9_ffd",
+      "importance": 3.5904641151428223,
+      "rank": 27,
+      "category": "Moving Average",
+      "research_rank": null
+    },
+    {
+      "feature_name": "squeeze_momentum",
+      "importance": 3.583756446838379,
+      "rank": 28,
+      "category": "Volatility Squeeze",
+      "research_rank": null
+    },
+    {
+      "feature_name": "adx",
+      "importance": 3.576470136642456,
+      "rank": 29,
+      "category": "Trend (ADX)",
+      "research_rank": null
+    },
+    {
+      "feature_name": "macd_signal",
+      "importance": 3.44708514213562,
+      "rank": 30,
+      "category": "Trend (MACD)",
+      "research_rank": null
+    }
+  ],
+  "comparison_with_research": {
+    "research_indicators_found": {
+      "squeeze_pro": {
+        "research_rank": 1,
+        "actual_rank": 2,
+        "importance": 7.104743957519531,
+        "category": "Volatility Squeeze",
+        "feature_name": "squeeze_pro_zscore"
+      },
+      "rsi_63": {
+        "research_rank": 5,
+        "actual_rank": 14,
+        "importance": 4.413022518157959,
+        "category": "Momentum",
+        "feature_name": "rsi_63"
+      },
+      "ppo": {
+        "research_rank": 2,
+        "actual_rank": 25,
+        "importance": 3.7253763675689697,
+        "category": "Momentum",
+        "feature_name": "ppo"
+      },
+      "roc_63": {
+        "research_rank": 4,
+        "actual_rank": 26,
+        "importance": 3.681405782699585,
+        "category": "Momentum",
+        "feature_name": "roc_63"
+      },
+      "macd": {
+        "research_rank": 3,
+        "actual_rank": 30,
+        "importance": 3.44708514213562,
+        "category": "Trend (MACD)",
+        "feature_name": "macd_signal"
+      }
+    },
+    "expected_indicators_in_top30": {
+      "squeeze_pro": true,
+      "ppo": true,
+      "macd": false,
+      "macd_histogram": false,
+      "roc_63": true,
+      "rsi_63": true,
+      "adx": true,
+      "atr": true,
+      "vwap_dev": false
+    },
+    "research_correlation": 0.3469546135333556,
+    "total_indicators_ranked": 30
+  },
+  "longer_period_validation": {
+    "rsi_14_vs_63": null,
+    "roc_12_vs_63": null
+  },
+  "per_symbol_rankings": {
+    "AAPL": [
+      {
+        "feature_name": "ema_9",
+        "importance": 8.988719940185547,
+        "rank": 1,
+        "category": "Moving Average"
+      },
+      {
+        "feature_name": "squeeze_pro_zscore",
+        "importance": 7.104743957519531,
+        "rank": 2,
+        "category": "Volatility Squeeze"
+      },
+      {
+        "feature_name": "sma_200_ffd",
+        "importance": 6.984989643096924,
+        "rank": 3,
+        "category": "Moving Average"
+      },
+      {
+        "feature_name": "atr",
+        "importance": 5.690816879272461,
+        "rank": 4,
+        "category": "Volatility (ATR)"
+      },
+      {
+        "feature_name": "close_ffd",
+        "importance": 5.541872024536133,
+        "rank": 5,
+        "category": "Fractional Diff"
+      },
+      {
+        "feature_name": "price_sma200_pct",
+        "importance": 5.465638160705566,
+        "rank": 6,
+        "category": "Moving Average"
+      },
+      {
+        "feature_name": "squeeze_momentum_zscore",
+        "importance": 5.239734172821045,
+        "rank": 7,
+        "category": "Volatility Squeeze"
+      },
+      {
+        "feature_name": "sma_20_ffd",
+        "importance": 5.227168560028076,
+        "rank": 8,
+        "category": "Moving Average"
+      },
+      {
+        "feature_name": "squeeze",
+        "importance": 4.897933006286621,
+        "rank": 9,
+        "category": "Volatility Squeeze"
+      },
+      {
+        "feature_name": "sma_20",
+        "importance": 4.770071983337402,
+        "rank": 10,
+        "category": "Moving Average"
+      },
+      {
+        "feature_name": "ema_21_ffd",
+        "importance": 4.644369602203369,
+        "rank": 11,
+        "category": "Moving Average"
+      },
+      {
+        "feature_name": "atr_zscore",
+        "importance": 4.598468780517578,
+        "rank": 12,
+        "category": "Volatility (ATR)"
+      },
+      {
+        "feature_name": "bb_lower",
+        "importance": 4.564797878265381,
+        "rank": 13,
+        "category": "Volatility (BB)"
+      },
+      {
+        "feature_name": "rsi_63",
+        "importance": 4.413022518157959,
+        "rank": 14,
+        "category": "Momentum"
+      },
+      {
+        "feature_name": "price_sma50_pct_zscore",
+        "importance": 4.36197566986084,
+        "rank": 15,
+        "category": "Moving Average"
+      },
+      {
+        "feature_name": "bb_upper",
+        "importance": 4.31923246383667,
+        "rank": 16,
+        "category": "Volatility (BB)"
+      },
+      {
+        "feature_name": "sma_50",
+        "importance": 4.2807769775390625,
+        "rank": 17,
+        "category": "Moving Average"
+      },
+      {
+        "feature_name": "sma_200",
+        "importance": 4.230651378631592,
+        "rank": 18,
+        "category": "Moving Average"
+      },
+      {
+        "feature_name": "kc_upper",
+        "importance": 4.228806495666504,
+        "rank": 19,
+        "category": "Volatility (KC)"
+      },
+      {
+        "feature_name": "adx_zscore",
+        "importance": 4.071078777313232,
+        "rank": 20,
+        "category": "Trend (ADX)"
+      },
+      {
+        "feature_name": "natr_zscore",
+        "importance": 4.024840354919434,
+        "rank": 21,
+        "category": "Volatility (ATR)"
+      },
+      {
+        "feature_name": "price_sma50_pct",
+        "importance": 3.9135942459106445,
+        "rank": 22,
+        "category": "Moving Average"
+      },
+      {
+        "feature_name": "minus_di",
+        "importance": 3.9062352180480957,
+        "rank": 23,
+        "category": "Trend (ADX)"
+      },
+      {
+        "feature_name": "return_20d",
+        "importance": 3.858447551727295,
+        "rank": 24,
+        "category": "Returns"
+      },
+      {
+        "feature_name": "ppo",
+        "importance": 3.7253763675689697,
+        "rank": 25,
+        "category": "Momentum"
+      },
+      {
+        "feature_name": "roc_63",
+        "importance": 3.681405782699585,
+        "rank": 26,
+        "category": "Momentum"
+      },
+      {
+        "feature_name": "ema_9_ffd",
+        "importance": 3.5904641151428223,
+        "rank": 27,
+        "category": "Moving Average"
+      },
+      {
+        "feature_name": "squeeze_momentum",
+        "importance": 3.583756446838379,
+        "rank": 28,
+        "category": "Volatility Squeeze"
+      },
+      {
+        "feature_name": "adx",
+        "importance": 3.576470136642456,
+        "rank": 29,
+        "category": "Trend (ADX)"
+      },
+      {
+        "feature_name": "macd_signal",
+        "importance": 3.44708514213562,
+        "rank": 30,
+        "category": "Trend (MACD)"
+      }
+    ]
+  }
+}

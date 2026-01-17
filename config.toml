@@ -1,0 +1,128 @@
+# Nova Aetus Swing Trading System Configuration
+
+[technical]
+# Technical indicator periods
+rsi_period = 14
+macd_fast = 12
+macd_slow = 26
+macd_signal = 9
+bollinger_period = 20
+bollinger_stddev = 2.0
+atr_period = 14
+sma_short = 20
+sma_long = 50
+sma_trend = 200
+
+[ml]
+# XGBoost model parameters
+n_estimators = 100
+max_depth = 6
+learning_rate = 0.1
+min_child_weight = 3
+subsample = 0.8
+colsample_bytree = 0.8
+gamma = 0.1
+reg_alpha = 0.1
+reg_lambda = 1.0
+objective = "binary:logistic"
+eval_metric = "logloss"
+
+# Optuna hyperparameter tuning
+optuna_trials = 100
+optuna_timeout = 3600  # seconds
+
+# GPU optimization settings (RTX 5070 Ti optimizations)
+use_quantile_dmatrix = true  # Use QuantileDMatrix for 5x memory reduction
+use_rmm = true  # Use RAPIDS Memory Manager for faster GPU memory allocation
+gradient_sampling = true  # Enable gradient-based sampling (requires XGBoost 3.0+) - Additional 20-30% memory savings
+# feature_selection_top_n = 30  # Select top N features (comment out or set to 0 to use all features)
+
+[risk]
+# Position sizing
+max_position_size_pct = 0.10  # 10% of capital per position
+risk_per_trade_pct = 0.02  # 2% risk per trade
+max_portfolio_risk_pct = 0.20  # 20% total portfolio risk
+
+# Stop loss
+atr_stop_multiplier = 2.0  # Stop loss at 2x ATR
+trailing_stop_enabled = true
+trailing_stop_pct = 0.05  # 5% trailing stop
+
+# Drawdown protection
+max_drawdown_pct = 0.10  # 10% maximum drawdown before halting
+peak_equity_check_interval = 60  # Check every 60 seconds
+
+[circuit_breaker]
+max_errors_per_minute = 5
+error_window_seconds = 60
+halt_on_breach = true
+notification_on_breach = true
+
+[sentiment]
+# Ollama configuration
+model_name = "llama3"  # or "mistral"
+temperature = 0.7
+max_tokens = 512
+context_window = 4096
+
+# Sentiment analysis prompts
+bullish_keywords = ["positive", "growth", "upside", "bullish", "strong"]
+bearish_keywords = ["negative", "decline", "downside", "bearish", "weak"]
+neutral_threshold = 0.3  # Sentiment score threshold for neutral
+
+[data]
+# Data fetching
+# 25 symbols: Tech (10), Finance (3), Healthcare (3), Consumer (3), Energy (2), Industrial (2), ETFs (2)
+symbols = [
+    # Technology (10) - High liquidity, strong trends for swing trading
+    "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA",
+    "TSLA", "META", "AMD", "INTC", "NFLX",
+
+    # Finance (3) - Sector diversification, good volatility for swings
+    "JPM", "BAC", "GS",
+
+    # Healthcare (3) - Defensive sector, steady trends
+    "JNJ", "UNH", "PFE",
+
+    # Consumer (3) - Cyclical, good for trend following
+    "WMT", "KO", "NKE",
+
+    # Energy (2) - Commodity exposure, volatility
+    "XOM", "CVX",
+
+    # Industrial (2) - Economic cycle exposure
+    "BA", "CAT",
+
+    # ETFs (2) - Market exposure and diversification
+    "SPY", "QQQ"  # S&P 500 and NASDAQ-100
+]
+default_timeframe = "1Day"
+lookback_periods = 756  # 3 years of daily data (minimum for reliable swing trading)
+
+# Database
+timescale_host = "localhost"
+timescale_port = 5432
+timescale_db = "nova_aetus"
+timescale_user = "postgres"
+timescale_password = "postgres"
+
+[notifications]
+# Discord webhook configuration
+discord_enabled = true
+discord_webhook_url = ""  # Set in .env
+notification_level = "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+
+[dashboard]
+# Streamlit dashboard configuration
+port = 8501
+host = "localhost"
+theme = "dark"
+enable_metrics = true
+
+[resources]
+# Resource management
+max_db_connections = 10
+max_concurrent_requests = 50
+# max_memory_mb = null  # Optional memory limit (commented out - TOML doesn't support null)
+ollama_max_concurrent = 5
+thread_pool_size = 10

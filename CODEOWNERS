@@ -1,0 +1,72 @@
+# CODEOWNERS File
+# This file defines code ownership for the Nova Aetus project.
+# Following quant firm best practices for clear responsibility and review requirements.
+#
+# Syntax: <file-pattern> <owners>
+# Owners can be GitHub usernames, team names, or email addresses
+# Use @username for GitHub, @org/team-name for teams
+
+# Core Trading Logic
+# These modules contain the core trading strategy and execution logic
+/src/nova/strategy/ @trading-team
+/src/nova/models/ @ml-team
+
+# Infrastructure & Core Services
+# Core platform services, configuration, logging, health monitoring
+/src/nova/core/ @platform-team
+/src/nova/api/ @platform-team
+
+# Data Layer
+# Data loading, storage, and database operations
+/src/nova/data/ @data-team
+
+# Feature Engineering
+# Technical indicators and sentiment analysis
+/src/nova/features/ @ml-team
+
+# Dashboard
+# Streamlit dashboard and visualization
+/src/nova/dashboard/ @platform-team
+
+# Main Entry Points
+/src/nova/main.py @trading-team
+
+# Configuration Files
+# Critical configuration that affects system behavior
+/config.toml @platform-team
+/requirements.txt @platform-team
+/pyproject.toml @platform-team
+/docker-compose.yml @platform-team
+/prometheus.yml @platform-team
+
+# Scripts
+# Training and utility scripts
+/scripts/ @ml-team
+
+# MCP Server
+# Model Context Protocol integration
+/mcp_server/ @platform-team
+
+# Documentation
+# All documentation requires review for accuracy
+/docs/ @docs-team
+
+# Tests
+# Test code should be reviewed by the team owning the code being tested
+/tests/ @platform-team
+
+# Benchmarks
+# Performance benchmarks
+/benchmarks/ @platform-team
+
+# Root Level Files
+# Important project-level files
+/README.md @docs-team
+/.cursorrules @platform-team
+/.gitignore @platform-team
+/.pre-commit-config.yaml @platform-team
+
+# Note: If you don't have teams set up yet, you can use:
+# - Your GitHub username
+# - Email addresses
+# - Or leave as placeholders until teams are configured
