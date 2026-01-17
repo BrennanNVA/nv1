@@ -73,8 +73,8 @@ class DataLoader:
     async def fetch_historical_bars(
         self,
         symbol: str,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        start_date: str | datetime | None = None,
+        end_date: str | datetime | None = None,
         timeframe: Optional[str] = None,
         extended_hours: bool = False,
         adjustment: str = "raw",
@@ -101,8 +101,11 @@ class DataLoader:
         Returns:
             DataFrame with OHLCV data (columns: timestamp, open, high, low, close, volume)
         """
+        # Convert strings to datetime if needed (after validation)
         if end_date is None:
             end_date = datetime.now()
+        elif isinstance(end_date, str):
+            end_date = TimestampValidator.validate_datetime(end_date)
 
         if start_date is None:
             # Calculate start date based on lookback periods
@@ -112,6 +115,8 @@ class DataLoader:
             # Estimate days based on timeframe
             days_per_period = self._get_days_per_period(timeframe)
             start_date = end_date - timedelta(days=self.config.lookback_periods * days_per_period)
+        elif isinstance(start_date, str):
+            start_date = TimestampValidator.validate_datetime(start_date)
 
         if timeframe is None:
             timeframe = self.config.default_timeframe

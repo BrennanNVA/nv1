@@ -72,6 +72,7 @@ async def trading_loop(
     7. Update positions and P&L
     8. Store signals and metrics
     """
+    logger = logging.getLogger(__name__)
     logger.info("Trading loop started")
 
     # Initialize risk manager with starting equity
@@ -201,7 +202,7 @@ async def trading_loop(
 
                     # 4. Get sentiment analysis
                     sentiment_score = 0.0
-                    sentiment_data = {}
+                    sentiment_data: dict[str, Any] = {}
 
                     # In production, fetch news/social data here
                     # For now, use placeholder sentiment

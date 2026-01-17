@@ -191,7 +191,6 @@ def show_overview(config) -> None:
                 storage.load_signals(
                     symbol=None,
                     start_date=(datetime.now() - timedelta(days=7)).isoformat(),
-                    limit=50,
                 )
             )
             if not signals_df.is_empty():
@@ -502,7 +501,6 @@ def show_models(config) -> None:
                 storage.load_signals(
                     symbol=None,
                     start_date=(datetime.now() - timedelta(days=1)).isoformat(),
-                    limit=20,
                 )
             )
 
