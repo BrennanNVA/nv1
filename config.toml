@@ -97,7 +97,7 @@ symbols = [
     "SPY", "QQQ"  # S&P 500 and NASDAQ-100
 ]
 default_timeframe = "1Day"
-lookback_periods = 756  # 3 years of daily data (minimum for reliable swing trading)
+lookback_periods = 1260  # 5 years of daily data (optimal for reliable swing trading, ~252 trading days/year)
 
 # Database
 timescale_host = "localhost"

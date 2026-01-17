@@ -114,7 +114,10 @@ class DataLoader:
 
             # Estimate days based on timeframe
             days_per_period = self._get_days_per_period(timeframe)
-            start_date = end_date - timedelta(days=self.config.lookback_periods * days_per_period)
+            # Add 20% buffer to account for weekends/holidays and ensure we get enough trading days
+            buffer_multiplier = 1.2
+            days_to_fetch = int(self.config.lookback_periods * days_per_period * buffer_multiplier)
+            start_date = end_date - timedelta(days=days_to_fetch)
         elif isinstance(start_date, str):
             start_date = TimestampValidator.validate_datetime(start_date)
 
@@ -133,6 +136,12 @@ class DataLoader:
                     logger.info(
                         f"Successfully fetched {len(df)} bars for {symbol} from Alpaca (Pro API)"
                     )
+                    # Validate we got enough data
+                    if len(df) < self.config.lookback_periods * 0.8:  # At least 80% of requested
+                        logger.warning(
+                            f"Only fetched {len(df)} bars for {symbol}, expected ~{self.config.lookback_periods} "
+                            f"(got {len(df)/self.config.lookback_periods*100:.1f}% of requested)"
+                        )
                     return df
             except Exception as e:
                 logger.warning(f"Alpaca fetch failed for {symbol}: {e}, trying yahooquery fallback")
@@ -143,6 +152,13 @@ class DataLoader:
                 df = await self._fetch_from_yahooquery(symbol, start_date, end_date, timeframe)
                 if not df.is_empty():
                     logger.info(f"Successfully fetched {len(df)} bars for {symbol} from yahooquery")
+                    # Validate we got enough data
+                    if len(df) < self.config.lookback_periods * 0.8:  # At least 80% of requested
+                        logger.warning(
+                            f"Only fetched {len(df)} bars for {symbol} from yahooquery, expected ~{self.config.lookback_periods} "
+                            f"(got {len(df)/self.config.lookback_periods*100:.1f}% of requested). "
+                            f"yahooquery may have limits on historical data. Consider using Alpaca Pro API for full historical data."
+                        )
                     return df
             except Exception as e:
                 logger.error(f"yahooquery fetch failed for {symbol}: {e}")
