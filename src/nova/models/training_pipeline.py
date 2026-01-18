@@ -211,6 +211,33 @@ class TrainingPipeline:
                 if features_df.is_empty():
                     return None
 
+                # Apply research-based feature selection if enabled
+                if (
+                    self.config.ml.feature_selection_top_n
+                    and self.config.ml.feature_selection_top_n > 0
+                    and self.config.ml.feature_selection_prioritize_research
+                ):
+                    all_feature_names = self.technical_features.get_feature_names()
+                    all_feature_names = [
+                        f for f in all_feature_names if f != "label" and f in features_df.columns
+                    ]
+
+                    selected_features = self.technical_features.select_top_features(
+                        all_feature_names,
+                        top_n=self.config.ml.feature_selection_top_n,
+                        prioritize_research=True,
+                    )
+
+                    # Filter DataFrame to only include selected features + required columns
+                    columns_to_keep = set(selected_features) | {"timestamp", "close", "label"}
+                    available_columns = [
+                        col for col in columns_to_keep if col in features_df.columns
+                    ]
+                    features_df = features_df.select(available_columns)
+                    logger.debug(
+                        f"Applied research-based feature selection: {len(selected_features)} features for {symbol}"
+                    )
+
                 return {
                     "symbol": symbol,
                     "features_df": features_df,

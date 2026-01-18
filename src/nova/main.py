@@ -29,7 +29,7 @@ from .data.loader import DataLoader
 from .data.storage import StorageService
 from .features.sentiment import SentimentAnalyzer
 from .features.technical import TechnicalFeatures
-from .models.predictor import ModelPredictor
+from .models.predictor import ModelRegistry
 from .strategy.confluence import ConfluenceLayer
 from .strategy.execution import ExecutionEngine
 from .strategy.portfolio_optimizer import OptimizationMethod, PortfolioOptimizer
@@ -52,7 +52,7 @@ async def trading_loop(
     confluence_layer: ConfluenceLayer,
     risk_manager: RiskManager,
     execution_engine: ExecutionEngine,
-    predictor: Optional[ModelPredictor],
+    model_registry: Optional[ModelRegistry],
     portfolio_optimizer: Optional[PortfolioOptimizer],
     config: Config,
     metrics: Any,
@@ -123,7 +123,20 @@ async def trading_loop(
             # Collect all signals first (portfolio approach) or process individually
             all_signals: dict[str, Any] = {}  # symbol -> {signal, price, stop_loss, etc.}
 
-            # Process each symbol to collect signals
+            # Step 1: Collect individual predictions from all symbols for master model
+            individual_predictions: dict[
+                str, dict[str, float]
+            ] = {}  # symbol -> {score, confidence, prediction}
+            symbol_data_cache: dict[
+                str, dict[str, Any]
+            ] = {}  # symbol -> {df, features_df, market_data, technical_signals}
+
+            # Get master model if available
+            master_model = None
+            if model_registry:
+                master_model = model_registry.get_master_model()
+
+            # First pass: Collect all individual predictions
             for symbol in config.data.symbols:
                 if shutdown_event.is_set():
                     break
@@ -166,9 +179,14 @@ async def trading_loop(
                     # Get latest row for prediction
                     latest_features = features_df.tail(1)
 
-                    # 3. Get technical prediction if model available
+                    # 3. Get technical prediction from individual model
                     technical_score = 0.0
                     technical_signals = {}
+
+                    # Load symbol-specific model from registry
+                    predictor = None
+                    if model_registry:
+                        predictor = model_registry.get_predictor(symbol)
 
                     if predictor:
                         try:
@@ -181,11 +199,20 @@ async def trading_loop(
                                 pred_df = predictor.predict_with_confidence(
                                     latest_features.select(feature_cols)
                                 )
-                                technical_score = (
+                                raw_score = (
                                     float(pred_df["prediction"][0]) * 2 - 1
                                 )  # Convert 0/1 to -1/1
+                                confidence = float(pred_df["confidence"][0])
+
+                                # Store individual prediction for master model
+                                individual_predictions[symbol] = {
+                                    "score": raw_score,
+                                    "confidence": confidence,
+                                    "prediction": float(pred_df["prediction"][0]),
+                                }
 
                                 # Extract individual technical signals
+                                tech_signals = {}
                                 for col in [
                                     "rsi",
                                     "macd",
@@ -195,10 +222,134 @@ async def trading_loop(
                                     "stoch_k",
                                 ]:
                                     if col in latest_features.columns:
-                                        technical_signals[col] = float(latest_features[col][0])
+                                        tech_signals[col] = float(latest_features[col][0])
+
+                                # Store market data for master model
+                                volatility = (
+                                    float(df["close"].std() / df["close"].mean())
+                                    if len(df) > 0
+                                    else 0.015
+                                )
+                                trend_strength = (
+                                    float(latest_features["adx"][0])
+                                    if "adx" in latest_features.columns
+                                    else 20.0
+                                )
+                                returns = (
+                                    df["close"].pct_change().drop_nulls().to_numpy()[-20:]
+                                    if len(df) >= 20
+                                    else np.array([0])
+                                )
+
+                                # Cache all data for this symbol
+                                symbol_data_cache[symbol] = {
+                                    "df": df,
+                                    "features_df": latest_features,
+                                    "technical_signals": tech_signals,
+                                    "market_data": {
+                                        "volatility": volatility,
+                                        "trend_strength": trend_strength,
+                                        "returns": returns.tolist(),
+                                    },
+                                }
+
+                                technical_score = (
+                                    raw_score  # Will be improved by master model if available
+                                )
                         except Exception as e:
                             logger.error(f"Technical prediction failed for {symbol}: {e}")
                             metrics.record_error("model", "prediction_failed")
+
+                    # Store other data we'll need later
+                    if symbol not in symbol_data_cache:
+                        symbol_data_cache[symbol] = {
+                            "df": df,
+                            "features_df": latest_features,
+                            "technical_signals": technical_signals,
+                            "market_data": {
+                                "volatility": (
+                                    float(df["close"].std() / df["close"].mean())
+                                    if len(df) > 0
+                                    else 0.015
+                                ),
+                                "trend_strength": (
+                                    float(latest_features["adx"][0])
+                                    if "adx" in latest_features.columns
+                                    else 20.0
+                                ),
+                                "returns": (
+                                    df["close"].pct_change().drop_nulls().to_numpy()[-20:].tolist()
+                                    if len(df) >= 20
+                                    else [0]
+                                ),
+                            },
+                        }
+                except Exception as e:
+                    logger.error(f"Failed to process {symbol} in first pass: {e}")
+                    metrics.record_error("data", "symbol_processing_failed")
+
+            # Step 2: Apply master ensemble model to improve predictions
+            if master_model and individual_predictions:
+                logger.debug("Applying master ensemble model to improve predictions...")
+                # Calculate aggregate market data (average across all symbols)
+                market_data_list = [
+                    cache["market_data"]
+                    for cache in symbol_data_cache.values()
+                    if "market_data" in cache
+                ]
+                if market_data_list:
+                    avg_volatility = np.mean([d["volatility"] for d in market_data_list])
+                    avg_trend = np.mean([d["trend_strength"] for d in market_data_list])
+                    all_returns = []
+                    for d in market_data_list:
+                        all_returns.extend(d.get("returns", []))
+                    aggregate_market_data = {
+                        "volatility": avg_volatility,
+                        "trend_strength": avg_trend,
+                        "returns": all_returns[-20:] if len(all_returns) >= 20 else all_returns,
+                    }
+                else:
+                    aggregate_market_data = None
+
+                # Improve each symbol's prediction using master model
+                for symbol in individual_predictions.keys():
+                    try:
+                        improved = master_model.predict(
+                            individual_predictions, aggregate_market_data, symbol
+                        )
+                        # Use improved score if master model provides it
+                        if "improved_score" in improved:
+                            individual_predictions[symbol]["score"] = improved["improved_score"]
+                            logger.debug(
+                                f"Master model improved {symbol}: "
+                                f"{improved.get('original_score', 0):.3f} -> "
+                                f"{improved['improved_score']:.3f}"
+                            )
+                    except Exception as e:
+                        logger.warning(f"Master model prediction failed for {symbol}: {e}")
+
+            # Step 3: Continue with confluence layer using improved predictions
+            for symbol in config.data.symbols:
+                if shutdown_event.is_set():
+                    break
+
+                try:
+                    # Skip if we don't have cached data for this symbol
+                    if symbol not in symbol_data_cache:
+                        continue
+
+                    # Get cached data
+                    cached = symbol_data_cache[symbol]
+                    df = cached["df"]
+                    latest_features = cached["features_df"]
+                    technical_signals = cached["technical_signals"]
+                    market_data_dict = cached["market_data"]
+
+                    # Get improved technical score from master model (or original if no master)
+                    if symbol in individual_predictions:
+                        technical_score = individual_predictions[symbol]["score"]
+                    else:
+                        technical_score = 0.0
 
                     # 4. Get sentiment analysis
                     sentiment_score = 0.0
@@ -632,25 +783,27 @@ async def main() -> None:
             data_config=config.data,
         )
 
-        # Load trained model if available
-        predictor = None
+        # Initialize model registry for symbol-specific model loading
+        # Institutional approach: Individual models per symbol for better accuracy
+        model_registry = None
         model_path = project_root / "models"
         if model_path.exists():
-            # Try to find latest model
-            model_files = list(model_path.glob("*.json"))
-            if model_files:
-                # Sort by modification time, get latest
-                latest_model = max(model_files, key=lambda p: p.stat().st_mtime)
-                try:
-                    predictor = ModelPredictor()
-                    predictor.load_model(str(latest_model))
-                    execution_engine.set_technical_predictor(predictor)
-                    logger.info(f"Loaded model: {latest_model.name}")
-                except Exception as e:
-                    logger.warning(f"Could not load model {latest_model}: {e}")
+            try:
+                model_registry = ModelRegistry(model_path)
+                available_symbols = model_registry.get_available_symbols()
+                if available_symbols:
+                    logger.info(
+                        f"Model registry initialized: {len(available_symbols)} symbols have trained models"
+                    )
+                    logger.debug(f"Available models: {', '.join(available_symbols)}")
+                else:
+                    logger.warning("Model registry initialized but no trained models found")
+            except Exception as e:
+                logger.warning(f"Could not initialize model registry: {e}")
+                model_registry = None
 
-        if predictor is None:
-            logger.warning("No trained model found - signal generation will be limited")
+        if model_registry is None:
+            logger.warning("No model registry available - signal generation will be limited")
 
         logger.info("All services initialized")
 
@@ -682,7 +835,7 @@ async def main() -> None:
                 confluence_layer=confluence_layer,
                 risk_manager=risk_manager,
                 execution_engine=execution_engine,
-                predictor=predictor,
+                model_registry=model_registry,
                 portfolio_optimizer=portfolio_optimizer,
                 config=config,
                 metrics=metrics,

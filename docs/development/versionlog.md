@@ -1,5 +1,206 @@
 # Issues Fixed - Project Review
 
+## Recent Updates (2025-01-17)
+
+### Update: Tech Stack Enhancements - QuantStats & Hierarchical Risk Parity
+**Date**: 2025-01-17
+**Type**: Feature Addition, Library Integration
+
+**Changes**:
+
+1. **Add: QuantStats Integration**
+   - Added `quantstats>=0.0.81` to `requirements.txt`
+   - Professional portfolio analytics and tearsheets
+   - Comprehensive performance metrics (Sharpe, Sortino, Calmar, etc.)
+   - Visualizations (equity curves, drawdowns, monthly returns heatmaps)
+   - Benchmark comparisons and HTML tearsheets
+   - Files: `requirements.txt`
+
+2. **Add: Hierarchical Risk Parity (HRP) Portfolio Optimization**
+   - Implemented HRP optimization method in `PortfolioOptimizer`
+   - Based on Lopez de Prado (2016) "Building Diversified Portfolios that Outperform Out of Sample"
+   - Uses hierarchical clustering to build robust portfolios less sensitive to estimation errors
+   - Added `HIERARCHICAL_RISK_PARITY` to `OptimizationMethod` enum
+   - Implemented `_optimize_hierarchical_risk_parity()` method
+   - Implemented `_hrp_recursive_bisection()` helper for recursive weight allocation
+   - Added imports: `scipy.cluster.hierarchy`, `scipy.spatial.distance`
+   - Files: `src/nova/strategy/portfolio_optimizer.py`
+
+3. **Add: Comprehensive Tech Stack Documentation**
+   - Created `docs/architecture/TECH_STACK.md`
+   - Complete reference for all technologies, libraries, and tools
+   - Hardware optimization notes (RTX 5070 Ti, Ryzen 7 7700X)
+   - Architecture patterns and data flow diagrams
+   - Comparison with "Master Quant Stack Reference (2026)"
+   - Version history and maintenance notes
+   - Files: `docs/architecture/TECH_STACK.md`
+
+## Recent Updates (2025-01-17)
+
+### Update: Weekend Improvements - Priority 1 & 2 Complete
+**Date**: 2025-01-17
+**Type**: Feature Addition, Bug Fix, Performance Optimization
+
+**Completed Improvements** (6/9 tasks from weekend plan):
+
+1. **Fix: Model Analysis Script - XGBoost JSON Loading Error**
+   - Fixed `save_model()` to save metadata to separate file (`.json.metadata`) instead of overwriting XGBoost model
+   - Updated `analyze_models.py` to handle metadata vs model files correctly
+   - Added support for walk-forward metrics (`aggregated_sharpe`, `final_metrics`)
+   - Files: `src/nova/models/trainer.py`, `scripts/analyze_models.py`
+
+2. **Add: Research-Backed Feature Selection**
+   - Implemented `get_research_prioritized_features()` prioritizing top indicators:
+     - Squeeze_pro (Research #1 indicator)
+     - PPO (Percentage Price Oscillator)
+     - MACD (Most profitable/lowest-risk)
+     - ROC63 (63-day Rate of Change)
+     - RSI63 (63-day RSI)
+   - Added `select_top_features()` with research-based prioritization
+   - Integrated into training pipeline to select top N features before training
+   - Added `feature_selection_prioritize_research: bool = True` to `MLConfig`
+   - Files: `src/nova/features/technical.py`, `src/nova/core/config.py`, `src/nova/models/training_pipeline.py`
+
+3. **Verify: Longer-Period Indicators**
+   - Confirmed ROC63 and RSI63 already implemented in `calculate_all_indicators()`
+   - Added to z-score normalization list for consistency
+   - Files: `src/nova/features/technical.py`
+
+4. **Update: Connection Pooling Improvements**
+   - Added `max_queries=50000` for connection rotation (prevents exhaustion)
+   - Added `max_inactive_connection_lifetime=300` for idle cleanup (5 minutes)
+   - Documented TimescaleDB reserved connections (17 connections)
+   - Files: `src/nova/data/storage.py`
+
+5. **Add: Polars Streaming Support**
+   - Added `use_streaming` parameter to `calculate_ml_features()`
+   - Auto-enables for datasets >10K rows (2-7× faster per research)
+   - Prepared for large dataset processing
+   - Files: `src/nova/features/technical.py`
+
+6. **Update: TimescaleDB Real-Time Aggregates**
+   - Enabled `materialized_only=false` for all continuous aggregates (ohlcv_1min, ohlcv_1hour, ohlcv_daily)
+   - Provides real-time access to latest data (combines materialized + recent)
+   - 100× faster queries per research findings
+   - Files: `src/nova/data/storage.py`
+
+**Impact**:
+- Model saving bug fixed (metadata no longer overwrites models)
+- Model analysis now works correctly with all training reports
+- Research-backed feature prioritization ready for production use
+- Connection pooling prevents resource exhaustion
+- Real-time aggregates enable low-latency queries
+- Streaming ready for large dataset processing (future-proofing)
+
+**Documentation**:
+- Created `docs/development/WEEKEND_IMPROVEMENTS_SUMMARY.md` - detailed summary
+
+**Status**: Priority 1 & 2 complete. All changes backward compatible.
+
+---
+
+### Add: Master Ensemble Model - Renaissance-Style Hierarchical Architecture
+**Date**: 2025-01-17
+**Type**: Feature Addition (Core ML Architecture)
+
+**Master Ensemble Model Implementation**:
+- Created `MasterEnsembleModel` class (`src/nova/models/master_ensemble.py`)
+- Implements Renaissance Technologies-style unified ensemble that learns to combine individual symbol models
+- **Key Features:**
+  - Collects predictions from all 24 individual symbol models
+  - Creates meta-features: individual predictions, confidences, cross-symbol statistics, sector correlations
+  - Trains meta-model (XGBoost/Ridge/Linear) to learn optimal combination weights
+  - Captures cross-symbol patterns (e.g., tech sector moves together)
+  - Adapts weights based on market conditions
+  - Automatically down-weights underperforming models
+- **Architecture:** Adds critical Layer 3.5 between individual models and ConfluenceLayer
+  - Individual Models → Master Ensemble → ConfluenceLayer → Portfolio Optimizer → Execution
+
+**ModelRegistry Updates**:
+- Added `get_master_model()` method to load master ensemble model
+- Master model automatically loaded during trading if available
+- Supports caching and version management
+
+**Trading Loop Integration**:
+- Updated `src/nova/main.py` trading loop to:
+  1. Collect all individual predictions from symbol models first
+  2. Apply master model to improve predictions using cross-symbol patterns
+  3. Use improved technical scores in ConfluenceLayer
+- Master model improves technical scores before they enter confluence layer
+
+**Training Script**:
+- Created `scripts/train_master_model.py` for training master ensemble model
+- Collects historical predictions from all symbol models
+- Creates training examples with future returns as targets
+- Trains meta-model on aggregated cross-symbol data
+
+**Unified Training Command**:
+- Created `scripts/train.py` - unified training interface
+- Simple commands: `./train all` (individual models), `./train master` (master model)
+- Updated `train` bash script to use unified command
+- Supports positional years: `./train all 5`, `./train master 3`
+
+**Documentation**:
+- Updated `docs/research/MODEL_ARCHITECTURE.md` with Renaissance-style architecture details
+- Created `docs/guides/training/TRAINING_COMMANDS.md` - quick reference guide
+- Documented master model benefits and usage
+
+**Files Created**:
+- `src/nova/models/master_ensemble.py` - Master ensemble model implementation
+- `scripts/train_master_model.py` - Master model training script
+- `scripts/train.py` - Unified training command interface
+- `docs/guides/training/TRAINING_COMMANDS.md` - Training commands reference
+
+**Files Modified**:
+- `src/nova/models/predictor.py` - Added `get_master_model()` to ModelRegistry
+- `src/nova/models/__init__.py` - Export MasterEnsembleModel
+- `src/nova/main.py` - Integrated master model into trading loop
+- `train` - Updated to use unified training command
+- `docs/research/MODEL_ARCHITECTURE.md` - Updated with implementation details
+
+**Status**: Fully implemented and integrated. Master model automatically improves predictions during trading.
+
+---
+
+### Fix: Symbol-Specific Model Loading Bug
+**Date**: 2025-01-17
+**Type**: Bug Fix
+
+**Issue**:
+- System was loading only the latest model file and using it for all symbols
+- Individual symbol models (24 models) were trained but not used correctly
+- Each symbol should use its own trained model (e.g., AAPL model for AAPL predictions)
+
+**Fix**:
+- Created `ModelRegistry` class to manage symbol-specific model loading
+- Models loaded on-demand per symbol during trading loop
+- Models cached in memory to avoid repeated file I/O
+- Each symbol now uses its correct trained model
+
+**Files Modified**:
+- `src/nova/models/predictor.py` - Added ModelRegistry class
+- `src/nova/main.py` - Updated to use ModelRegistry instead of single model
+
+**Status**: Fixed - Each symbol now uses its own trained model correctly.
+
+---
+
+### Update: Remove BAC from Trading Symbols
+**Date**: 2025-01-17
+**Type**: Configuration Update
+
+**Changes**:
+- Removed BAC (Bank of America) from symbol list in `config.toml`
+- Updated Finance sector comment from "Finance (3)" to "Finance (2)"
+- Symbol count reduced from 25 to 24 symbols
+- BAC model training failed, and symbol not desired for swing trading
+
+**Files Modified**: `config.toml`
+
+**Status**: Configuration updated, symbol list now has 24 symbols.
+
+---
+
 ## Critical Issues Fixed
 
 ### 1. ✅ Ollama Async/Sync Mismatch

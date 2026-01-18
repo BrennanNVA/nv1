@@ -15,8 +15,19 @@ if [ "$1" = "all" ]; then
     echo "📊 Training ALL symbols from config.toml"
 else
     TRAIN_ALL=false
-    YEARS=${2:-3}
-    SYMBOLS=${@:1:1}  # First argument only, rest are years
+    # Find the last argument - if it's a number, it's years; otherwise default to 3
+    LAST_ARG="${@: -1}"
+    if [[ "$LAST_ARG" =~ ^[0-9]+$ ]]; then
+        # Last argument is a number (years)
+        YEARS=$LAST_ARG
+        # All arguments except the last are symbols
+        SYMBOLS="${@:1:$(($#-1))}"
+    else
+        # No years specified, use default
+        YEARS=3
+        # All arguments are symbols
+        SYMBOLS="$@"
+    fi
 fi
 
 echo "============================================================"
@@ -32,7 +43,10 @@ echo "📁 Project directory: $PROJECT_ROOT"
 if [ "$TRAIN_ALL" = true ]; then
     echo "📊 Symbols: ALL (from config.toml)"
 else
-    echo "📊 Symbols: ${SYMBOLS:-AAPL}"
+    if [ -z "$SYMBOLS" ]; then
+        SYMBOLS="AAPL"  # Default if no symbols provided
+    fi
+    echo "📊 Symbols: $SYMBOLS"
 fi
 echo "📅 Years: $YEARS"
 echo ""
@@ -82,6 +96,7 @@ echo ""
 if [ "$TRAIN_ALL" = true ]; then
     python scripts/train_models.py --all --years $YEARS
 else
+    # Convert space-separated symbols to array for Python script
     python scripts/train_models.py --symbols $SYMBOLS --years $YEARS
 fi
 

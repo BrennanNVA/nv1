@@ -110,8 +110,8 @@ class ModelAnalyzer:
             "model_path": training_result.get("model_path"),
         }
 
-        # Training metrics
-        metrics = training_result.get("metrics", {})
+        # Training metrics - check both 'metrics' and 'final_metrics' (walk-forward uses 'final_metrics')
+        metrics = training_result.get("metrics", {}) or training_result.get("final_metrics", {})
         analysis["training_metrics"] = {
             "accuracy": metrics.get("accuracy", 0),
             "precision": metrics.get("precision", 0),
@@ -119,12 +119,19 @@ class ModelAnalyzer:
             "f1_score": metrics.get("f1_score", 0),
         }
 
-        # Validation metrics
+        # Validation metrics - walk-forward uses aggregated_sharpe instead of dsr
         cv_results = training_result.get("cv_results", {})
+        dsr = training_result.get("dsr", 0)
+        # For walk-forward models, use aggregated_sharpe as proxy for validation
+        if not dsr and training_result.get("aggregated_sharpe"):
+            # Convert sharpe to approximate DSR (simplified)
+            dsr = min(1.0, training_result.get("aggregated_sharpe", 0) / 2.0)
         analysis["validation_metrics"] = {
             "cv_mean": cv_results.get("mean_score", 0),
             "cv_std": cv_results.get("std_score", 0),
-            "dsr": training_result.get("dsr", 0),
+            "dsr": dsr,
+            "aggregated_sharpe": training_result.get("aggregated_sharpe", 0),
+            "aggregated_psr": training_result.get("aggregated_psr", 0),
         }
 
         # Feature importance
@@ -146,6 +153,25 @@ class ModelAnalyzer:
         model_path = training_result.get("model_path")
         if not model_path or not Path(model_path).exists():
             return []
+
+        # Check if file is actually an XGBoost model or metadata JSON
+        try:
+            # Try to parse as JSON to check if it's metadata
+            with open(model_path) as f:
+                test_data = json.load(f)
+                # If it has 'model_type' key, it's metadata, not XGBoost model
+                if "model_type" in test_data:
+                    print("  ⚠️  Model file appears to be metadata JSON, not XGBoost model")
+                    # Look for actual model file or metadata with model_path
+                    if "model_path" in test_data:
+                        actual_model_path = Path(test_data["model_path"])
+                        if actual_model_path.exists() and actual_model_path != Path(model_path):
+                            model_path = str(actual_model_path)
+                    else:
+                        return []  # Can't find actual model file
+        except (json.JSONDecodeError, ValueError):
+            # File is not JSON, assume it's XGBoost model format
+            pass
 
         try:
             trainer = ModelTrainer(config=None)  # Config not needed for loading

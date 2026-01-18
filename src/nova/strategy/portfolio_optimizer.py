@@ -21,7 +21,9 @@ from enum import Enum
 from typing import Optional
 
 import numpy as np
+from scipy.cluster.hierarchy import leaves_list, linkage
 from scipy.optimize import minimize
+from scipy.spatial.distance import squareform
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +33,7 @@ class OptimizationMethod(Enum):
 
     MEAN_VARIANCE = "mean_variance"
     RISK_PARITY = "risk_parity"
+    HIERARCHICAL_RISK_PARITY = "hierarchical_risk_parity"
     KELLY = "kelly"
     MIN_VARIANCE = "min_variance"
     EQUAL_WEIGHT = "equal_weight"
@@ -65,6 +68,7 @@ class PortfolioOptimizer:
     Implements multiple optimization methods:
     - Mean-Variance: Maximize Sharpe ratio
     - Risk Parity: Equal risk contribution
+    - Hierarchical Risk Parity: Robust clustering-based allocation
     - Kelly: Optimal growth
     - Minimum Variance: Minimize risk
     """
@@ -162,6 +166,8 @@ class PortfolioOptimizer:
             )
         elif self.method == OptimizationMethod.RISK_PARITY:
             weights = self._optimize_risk_parity(returns_covariance, symbols_list)
+        elif self.method == OptimizationMethod.HIERARCHICAL_RISK_PARITY:
+            weights = self._optimize_hierarchical_risk_parity(returns_covariance, symbols_list)
         elif self.method == OptimizationMethod.KELLY:
             if win_rates and avg_wins and avg_losses:
                 weights = self._optimize_kelly(
@@ -444,3 +450,135 @@ class PortfolioOptimizer:
         returns = returns * 0.001  # 0.1% per day per unit signal
 
         return returns
+
+    def _optimize_hierarchical_risk_parity(
+        self,
+        covariance: np.ndarray,
+        symbols: list[str],
+    ) -> np.ndarray:
+        """
+        Hierarchical Risk Parity (HRP) optimization.
+
+        Based on Lopez de Prado (2016) "Building Diversified Portfolios that Outperform
+        Out of Sample". Uses hierarchical clustering to build robust portfolios that
+        are less sensitive to estimation errors in covariance matrices.
+
+        Steps:
+        1. Compute correlation matrix from covariance
+        2. Build hierarchical tree using correlation distances
+        3. Quasi-diagonalize covariance matrix using tree structure
+        4. Recursively allocate weights using inverse-variance weighting
+
+        Args:
+            covariance: Covariance matrix (n x n)
+            symbols: List of symbols
+
+        Returns:
+            Optimal weights array (n)
+        """
+        n = len(symbols)
+
+        if n == 1:
+            return np.array([1.0])
+
+        try:
+            # Step 1: Compute correlation matrix
+            std_dev = np.sqrt(np.diag(covariance))
+            correlation = covariance / np.outer(std_dev, std_dev)
+
+            # Step 2: Convert correlation to distance matrix
+            # Distance = sqrt(0.5 * (1 - correlation))
+            distance_matrix = np.sqrt(0.5 * (1 - correlation))
+
+            # Step 3: Build hierarchical tree using single linkage
+            condensed_distances = squareform(distance_matrix, checks=False)
+            linkage_matrix = linkage(condensed_distances, method="single")
+
+            # Step 4: Get order of leaves from dendrogram
+            leaves_order = leaves_list(linkage_matrix)
+
+            # Step 5: Quasi-diagonalize covariance matrix
+            # Reorder covariance matrix according to hierarchical structure
+            reordered_cov = covariance[np.ix_(leaves_order, leaves_order)]
+            reordered_symbols = [symbols[i] for i in leaves_order]
+
+            # Step 6: Recursively allocate weights
+            weights = self._hrp_recursive_bisection(reordered_cov, list(range(n)))
+
+            # Step 7: Map weights back to original symbol order
+            final_weights = np.zeros(n)
+            for i, orig_idx in enumerate(leaves_order):
+                final_weights[orig_idx] = weights[i]
+
+            # Apply constraints
+            final_weights = np.clip(
+                final_weights, self.min_position_weight, self.max_position_weight
+            )
+            final_weights = final_weights / np.sum(final_weights)  # Renormalize
+
+            return final_weights
+
+        except Exception as e:
+            logger.error(f"Hierarchical Risk Parity optimization error: {e}, using equal weights")
+            return np.ones(n) / n
+
+    def _hrp_recursive_bisection(self, covariance: np.ndarray, indices: list[int]) -> np.ndarray:
+        """
+        Recursively bisect portfolio and allocate weights using inverse-variance.
+
+        This is the core HRP algorithm that recursively splits the portfolio
+        into two clusters and allocates weights inversely proportional to variance.
+
+        Args:
+            covariance: Covariance matrix (n x n)
+            indices: List of indices for current cluster
+
+        Returns:
+            Weights array for the given indices
+        """
+        n = len(indices)
+
+        if n == 1:
+            return np.array([1.0])
+
+        # Compute inverse-variance weights for current cluster
+        sub_cov = covariance[np.ix_(indices, indices)]
+        inv_var = 1.0 / np.diag(sub_cov)
+        inv_var_weights = inv_var / np.sum(inv_var)
+
+        # If cluster is small enough, return inverse-variance weights
+        if n <= 2:
+            return inv_var_weights
+
+        # Find split point (bisect at middle)
+        mid = n // 2
+        left_indices = indices[:mid]
+        right_indices = indices[mid:]
+
+        # Recursively allocate to left and right clusters
+        left_weights = self._hrp_recursive_bisection(covariance, left_indices)
+        right_weights = self._hrp_recursive_bisection(covariance, right_indices)
+
+        # Compute variance of left and right clusters
+        left_cov = covariance[np.ix_(left_indices, left_indices)]
+        right_cov = covariance[np.ix_(right_indices, right_indices)]
+
+        left_var = np.sum(left_weights * np.dot(left_cov, left_weights))
+        right_var = np.sum(right_weights * np.dot(right_cov, right_weights))
+
+        # Allocate between clusters inversely proportional to variance
+        if left_var == 0 and right_var == 0:
+            alpha = 0.5
+        elif left_var == 0:
+            alpha = 1.0
+        elif right_var == 0:
+            alpha = 0.0
+        else:
+            alpha = 1.0 - left_var / (left_var + right_var)
+
+        # Combine weights
+        combined_weights = np.zeros(n)
+        combined_weights[:mid] = alpha * left_weights
+        combined_weights[mid:] = (1 - alpha) * right_weights
+
+        return combined_weights

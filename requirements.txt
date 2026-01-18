@@ -43,6 +43,9 @@ mcp>=0.9.0
 evidently>=0.4.0  # Comprehensive drift detection
 nannyml>=0.10.0  # Performance estimation without labels
 
+# Performance Analytics
+quantstats>=0.0.81  # Professional portfolio analytics and tearsheets
+
 # Feature Store
 feast>=0.38.0  # Feature store infrastructure
 

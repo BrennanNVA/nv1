@@ -949,7 +949,8 @@ class ModelTrainer:
 
         filepath = Path(filepath)
 
-        # Save model
+        # Save model - XGBoost saves to the specified path directly
+        # If filepath is .json, XGBoost will save in JSON format
         self.model.save_model(str(filepath))
         logger.info(f"Model saved to {filepath}")
 
@@ -958,11 +959,19 @@ class ModelTrainer:
         if include_shap and X_val is not None:
             shap_stats = self.calculate_shap_values(X_val, feature_names)
 
-        # Save metadata
+        # Save metadata to separate file (append .metadata to avoid overwriting model)
         if include_metadata and self.training_history:
-            metadata_path = filepath.with_suffix(".json")
+            # Append .metadata before the extension
+            # e.g., model.json -> model.json.metadata
+            # This prevents overwriting the XGBoost model file
+            if filepath.suffix:
+                metadata_path = filepath.with_suffix(filepath.suffix + ".metadata")
+            else:
+                metadata_path = filepath.with_suffix(".json.metadata")
+
             metadata = {
                 "model_type": "XGBoostClassifier",
+                "model_path": str(filepath),
                 "created_at": datetime.now().isoformat(),
                 "training_history": self.training_history,
                 "gpu_available": self.gpu_available,
@@ -992,8 +1001,16 @@ class ModelTrainer:
         self.model = xgb.XGBClassifier()
         self.model.load_model(str(filepath))
 
-        # Try to load metadata from .metadata.json file
-        metadata_path = filepath.with_suffix("").with_suffix(".json.metadata")
+        # Try to load metadata from .metadata file (e.g., model.json.metadata)
+        # Check both .json.metadata and .metadata.json for backward compatibility
+        metadata_path = (
+            filepath.with_suffix(filepath.suffix + ".metadata")
+            if filepath.suffix
+            else filepath.with_suffix(".json.metadata")
+        )
+        if not metadata_path.exists():
+            # Try old format for backward compatibility
+            metadata_path = filepath.with_suffix("").with_suffix(".json.metadata")
         if metadata_path.exists():
             try:
                 with open(metadata_path) as f:

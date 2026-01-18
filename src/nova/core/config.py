@@ -46,6 +46,9 @@ class MLConfig(BaseModel):
         True  # Enable gradient-based sampling (XGBoost 3.0+) - Additional 20-30% memory savings
     )
     feature_selection_top_n: Optional[int] = None  # Select top N features (None = use all)
+    feature_selection_prioritize_research: bool = (
+        True  # Prioritize research-backed indicators (Squeeze_pro, PPO, MACD, ROC63, RSI63)
+    )
 
 
 class RiskConfig(BaseModel):

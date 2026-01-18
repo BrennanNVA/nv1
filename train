@@ -1,12 +1,12 @@
 #!/bin/bash
-# Ultra-short command wrapper for training
+# Unified training command wrapper
 # Usage:
-#   ./train                 # Train AAPL with 3 years (default)
-#   ./train all             # Train all symbols with 5 years (default)
-#   ./train AAPL            # Train AAPL with 3 years
-#   ./train AAPL 5          # Train AAPL with 5 years
-#   ./train all 5           # Train all symbols with 5 years
-#   ./train AAPL MSFT 5     # Train multiple symbols
+#   ./train all              # Train all individual symbol models (3 years)
+#   ./train all 5            # Train all individual models (5 years)
+#   ./train master           # Train master ensemble model (2 years)
+#   ./train master 3         # Train master model (3 years)
+#   ./train AAPL MSFT        # Train specific symbols (3 years)
+#   ./train AAPL MSFT 5      # Train specific symbols (5 years)
 
 cd "$(dirname "$0")"
-./START_TRAINING.sh "$@"
+python scripts/train.py "$@"

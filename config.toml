@@ -78,8 +78,8 @@ symbols = [
     "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA",
     "TSLA", "META", "AMD", "INTC", "NFLX",
 
-    # Finance (3) - Sector diversification, good volatility for swings
-    "JPM", "BAC", "GS",
+    # Finance (2) - Sector diversification, good volatility for swings
+    "JPM", "GS",
 
     # Healthcare (3) - Defensive sector, steady trends
     "JNJ", "UNH", "PFE",
