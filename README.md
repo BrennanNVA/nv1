@@ -1,201 +1,126 @@
-# Nova Aetus - Institutional-Grade Swing Trading System
+# Nova Aetus - Automated Trading System
 
-A quantitative trading system that combines Technical Analysis, Fundamental Analysis, and Sentiment Analysis to make swing trading decisions.
+An AI-powered trading system that combines technical analysis, machine learning, and sentiment analysis to make swing trading decisions.
 
-## Core Philosophy
+## What It Does
 
-1. **Confluence of Factors**: Trades require agreement from Technical, Fundamental, and Sentiment models
-2. **Hardware Optimization**: Leverages local Nvidia 5070 Ti for XGBoost training and Ollama LLM inference
-3. **Observability**: Chat-queryable via MCP and health reports via Discord
+1. **Analyzes stocks** using 88+ technical indicators, ML models, and sentiment
+2. **Generates signals** when multiple factors agree (Technical + Sentiment + Fundamental)
+3. **Manages risk** automatically using mathematical formulas (Kelly Criterion)
+4. **Executes trades** via Alpaca API when signals pass all checks
+5. **Monitors performance** via dashboard and Discord notifications
 
-## Technical Stack
+## Quick Start
 
-- **Language**: Python 3.12+
-- **Data Engine**: Polars (Rust-based DataFrame), Pydantic (Validation)
-- **ML Engine**: XGBoost (GPU Enabled), Optuna (Tuning)
-- **Sentiment**: Ollama (Local Llama-3/Mistral via ollama-python)
-- **Dashboard**: Streamlit + Plotly
-- **Database**: TimescaleDB (PostgreSQL) via Docker
-- **Notifications**: Discord Webhooks
-- **IDE Integration**: Model Context Protocol (MCP) for DB access
-
-## Quick Start - Training
-
-**Want to start training immediately?** See the [Training Quick Start Guide](docs/guides/TRAINING_QUICK_START.md) or [How to Train](docs/guides/training/HOW_TO_TRAIN.md) for a step-by-step walkthrough from terminal to training.
-
-### Fastest Way to Start Training
-
+### 1. Setup Environment
 ```bash
-# Option 1: Use the launcher script (easiest)
-./START_TRAINING.sh AAPL 3
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate
 
-# Option 2: Manual commands
-cd /home/brennan/nac/nova_aetus
-export PATH="$HOME/miniconda3/envs/nova_aetus/bin:$HOME/miniconda3/bin:$PATH"
-source ~/miniconda3/etc/profile.d/conda.sh
-conda activate nova_aetus
-python scripts/train_models.py --symbols AAPL --years 3
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure API keys
+cp .env.example .env
+# Edit .env with your Alpaca and Discord credentials
 ```
 
-**Full guides:**
-- [Training Quick Start Guide](docs/guides/TRAINING_QUICK_START.md) - Complete step-by-step guide
-- [How to Train](docs/guides/training/HOW_TO_TRAIN.md) - Quick reference
-- [Training Commands](docs/guides/training/TRAINING_COMMANDS.md) - All commands reference
+### 2. Start Database
+```bash
+docker-compose up -d
+```
+
+### 3. Train Models
+```bash
+# Train individual stock models (one per symbol)
+python scripts/train_models.py --all --years 3
+
+# Train master ensemble model (combines all individual models)
+python scripts/train_master_model.py --all --years 2
+```
+
+### 4. Run System
+```bash
+# Start trading loop
+python -m src.nova.main
+
+# Start dashboard (separate terminal)
+streamlit run src/nova/dashboard/app.py
+```
+
+## Documentation
+
+**Complete Guide**: See [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) for everything you need to know.
+
+**Recent Changes**: See [`docs/CHANGELOG.md`](docs/CHANGELOG.md) for what's new.
+
+## Tech Stack
+
+- **Python 3.12+**
+- **XGBoost** (GPU-accelerated ML)
+- **Polars** (fast data processing)
+- **TimescaleDB** (time-series database)
+- **Ollama** (local LLM for sentiment)
+- **Streamlit** (dashboard)
+- **Alpaca API** (trading)
+
+## How It Works
+
+**Two-Layer Model System:**
+1. **Individual Models** (24 models, one per stock) - Learn stock-specific patterns
+2. **Master Model** (1 unified model) - Combines all predictions, learns cross-symbol patterns
+
+**Trading Flow:**
+```
+Market Data → Features → Individual Models → Master Model → Confluence → Risk Management → Execution
+```
+
+See [`docs/GUIDE.md`](docs/GUIDE.md) for detailed explanation.
 
 ## Project Structure
 
 ```
 nova_aetus/
-├── .cursorrules           # Cursor IDE rules
-├── .env                   # API Keys & Webhook URLs (create from .env.example)
-├── config.toml            # Strategy Parameters
-├── docker-compose.yml     # DB + Observability stack
-├── prometheus.yml         # Prometheus configuration
-├── requirements.txt       # Python dependencies
-├── pytest.ini            # Test configuration
-├── START_TRAINING.sh      # Training launcher script (NEW!)
-├── launch_dashboard.sh    # Dashboard launcher script
-├── run.sh                 # Main system launcher
-├── setup_docker.sh        # Docker setup script
-├── docs/                  # Documentation (see docs/README.md)
-│   ├── guides/            # User guides and manuals
-│   ├── architecture/      # System architecture docs
-│   └── development/       # Development docs
-├── knowledge/            # Research documentation
-├── logs/                  # Application logs
-├── models/                # Trained model registry
-├── mcp_server/            # MCP Integration for Cursor
-│   └── db_connector.py
-└── src/
-    └── nova/
-        ├── main.py        # Main trading loop
-        ├── core/          # Configuration, logging, notifications
-        ├── data/          # Data loading and storage
-        ├── features/      # Technical indicators and sentiment
-        ├── models/        # XGBoost training and prediction
-        ├── strategy/      # Risk management and execution
-        ├── dashboard/     # Streamlit dashboard
-        └── api/           # Health/metrics API server
+├── .env              # API keys (create from .env.example)
+├── config.toml       # Strategy parameters
+├── docker-compose.yml # Database setup
+├── requirements.txt  # Python dependencies
+├── models/          # Trained models (individual + master)
+├── logs/            # Application logs
+└── src/nova/
+    ├── main.py      # Main trading loop
+    ├── core/        # Config, logging, notifications
+    ├── data/        # Data loading/storage
+    ├── features/    # Technical indicators, sentiment
+    ├── models/      # Training/prediction
+    ├── strategy/    # Risk management, execution
+    └── dashboard/   # Streamlit dashboard
 ```
 
-## Setup
-
-### 1. Prerequisites
+## Requirements
 
 - Python 3.12+
-- Docker and Docker Compose
-- Nvidia GPU with CUDA (for XGBoost GPU acceleration)
-- Ollama installed and running (for sentiment analysis)
-
-### 2. Install Dependencies
-
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-### 3. Configure Environment
-
-```bash
-cp .env.example .env
-# Edit .env with your Discord webhook URL and other settings
-```
-
-### 4. Start TimescaleDB
-
-```bash
-docker-compose up -d
-```
-
-### 5. Initialize Database Schema
-
-```bash
-# Run database migrations (to be implemented)
-python -m src.nova.data.storage --init
-```
-
-### 6. Configure Ollama
-
-```bash
-# Pull required model
-ollama pull llama3
-# or
-ollama pull mistral
-```
-
-### 7. Run the System
-
-```bash
-# Main trading system
-python -m src.nova.main
-
-# Dashboard (separate terminal)
-streamlit run src/nova/dashboard/app.py
-```
+- Docker & Docker Compose (for TimescaleDB)
+- NVIDIA GPU (optional, for faster training)
+- Ollama (optional, for sentiment analysis)
 
 ## Configuration
 
-Edit `config.toml` to adjust:
+**Environment Variables** (`.env`):
+- `ALPACA_API_KEY` - Trading API key
+- `ALPACA_SECRET_KEY` - Trading API secret
+- `DISCORD_WEBHOOK_URL` - Notifications webhook
+
+**Strategy Settings** (`config.toml`):
 - Technical indicator parameters
 - ML model hyperparameters
 - Risk management thresholds
-- Circuit breaker limits
-- Sentiment analysis settings
 
-## Documentation
+## Troubleshooting
 
-📚 **All documentation is in the `docs/` directory:**
+- **"No models found"** → Train individual models first
+- **"Database connection failed"** → Start TimescaleDB: `docker-compose up -d`
+- **"CUDA out of memory"** → Reduce batch size or use CPU mode
 
-- **User Guides**: `docs/guides/` - Operations manual, dashboard guides, training guides
-- **Architecture**: `docs/architecture/` - System design and schematics
-- **Reference**: `docs/reference/` - Technical references (API capabilities, database, secrets)
-- **Research**: `docs/research/` - Research notes and knowledge base
-- **Development**: `docs/development/` - Development notes and changelog
-
-**Quick Start**: See `docs/guides/OPERATION_MANUAL.md` for complete operations guide.
-
-For detailed documentation structure, see `docs/README.md`.
-
-## MCP Integration
-
-The MCP server allows querying the TimescaleDB database from Cursor chat. Configure in your Cursor/VSCode MCP settings.
-
-## Circuit Breaker
-
-The system includes a circuit breaker that halts trading if more than 5 errors occur within 60 seconds. This prevents cascading failures and protects capital.
-
-## Development
-
-### Pre-commit Hooks
-
-The project uses pre-commit hooks to ensure code quality. **Note:** Pre-commit requires Git. If the project is not yet a Git repository, initialize it first with `git init`.
-
-Set up hooks before committing:
-
-```bash
-# Activate virtual environment
-source venv/bin/activate  # or conda activate nova_aetus
-
-# Install pre-commit (if not already installed)
-pip install pre-commit
-
-# Initialize git repository (if not already done)
-git init
-
-# Install the git hooks
-pre-commit install
-
-# Run hooks manually on all files (optional)
-pre-commit run --all-files
-```
-
-The hooks will automatically:
-- Format code with Black
-- Lint with Ruff
-- Type check with mypy
-- Check for security issues with Bandit
-- Validate YAML, TOML, and JSON files
-- Check for trailing whitespace and other common issues
-
-Hooks run automatically on `git commit`. To skip hooks (not recommended), use `git commit --no-verify`.
+For more help, see [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md).
