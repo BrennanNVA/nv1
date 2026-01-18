@@ -1,0 +1,90 @@
+{
+  "model_type": "XGBoostClassifier",
+  "model_path": "/home/brennan/nac/nova_aetus/models/AAPL_wfo_20260117.json",
+  "created_at": "2026-01-17T23:48:13.433326",
+  "training_history": [
+    {
+      "timestamp": "2026-01-17T23:47:18.091851",
+      "n_samples": 504,
+      "n_features": 70,
+      "params": {
+        "objective": "binary:logistic",
+        "eval_metric": "logloss",
+        "tree_method": "hist",
+        "device": "cuda",
+        "random_state": 42,
+        "sampling_method": "gradient_based",
+        "subsample": 0.7168578594140873,
+        "n_estimators": 489,
+        "max_depth": 5,
+        "learning_rate": 0.08012737503998542,
+        "min_child_weight": 1,
+        "colsample_bytree": 0.7465447373174767,
+        "gamma": 0.22803499210851796,
+        "reg_alpha": 0.019116469627784252,
+        "reg_lambda": 4.544625019281812e-07
+      },
+      "training_time_seconds": 24.139153,
+      "gpu_used": true
+    },
+    {
+      "timestamp": "2026-01-17T23:47:45.121472",
+      "n_samples": 504,
+      "n_features": 70,
+      "params": {
+        "objective": "binary:logistic",
+        "eval_metric": "logloss",
+        "tree_method": "hist",
+        "device": "cuda",
+        "random_state": 42,
+        "sampling_method": "gradient_based",
+        "subsample": 0.6682096494749166,
+        "n_estimators": 563,
+        "max_depth": 7,
+        "learning_rate": 0.011711509955524094,
+        "min_child_weight": 5,
+        "colsample_bytree": 0.6260206371941118,
+        "gamma": 0.4744427686266666,
+        "reg_alpha": 0.530953226900921,
+        "reg_lambda": 0.05134883976937368
+      },
+      "training_time_seconds": 27.013205,
+      "gpu_used": true
+    },
+    {
+      "timestamp": "2026-01-17T23:48:13.427393",
+      "n_samples": 584,
+      "n_features": 70,
+      "params": {
+        "objective": "binary:logistic",
+        "eval_metric": "logloss",
+        "tree_method": "hist",
+        "device": "cuda",
+        "random_state": 42,
+        "sampling_method": "gradient_based",
+        "subsample": 0.7168578594140873,
+        "n_estimators": 489,
+        "max_depth": 5,
+        "learning_rate": 0.08012737503998542,
+        "min_child_weight": 1,
+        "colsample_bytree": 0.7465447373174767,
+        "gamma": 0.22803499210851796,
+        "reg_alpha": 0.019116469627784252,
+        "reg_lambda": 4.544625019281812e-07,
+        "callbacks_info": [
+          {
+            "type": "EarlyStopping",
+            "rounds": 50,
+            "save_best": true,
+            "maximize": false
+          }
+        ]
+      },
+      "training_time_seconds": 28.281553,
+      "gpu_used": true,
+      "best_score": 0.6357436616943307,
+      "best_iteration": 1
+    }
+  ],
+  "gpu_available": true
+}

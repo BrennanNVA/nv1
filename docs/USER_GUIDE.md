@@ -167,6 +167,30 @@ nova_aetus/
 
 ## Commands & Operations
 
+### Environment Setup
+
+Before running any commands, activate your Python environment:
+
+**If using Conda (recommended):**
+```bash
+conda activate nova_aetus
+```
+
+**If using venv:**
+```bash
+source venv/bin/activate
+# On Windows: venv\Scripts\activate
+```
+
+You should see `(nova_aetus)` or `(venv)` in your terminal prompt when the environment is active.
+
+**Verify environment is active:**
+```bash
+which python
+# Should show: /home/brennan/miniconda3/envs/nova_aetus/bin/python
+# or: /path/to/nova_aetus/venv/bin/python
+```
+
 ### Training Commands
 
 Use the `./train` script for all training operations:
@@ -737,6 +761,15 @@ Confluence Score = (Technical × w_tech) + (Sentiment × w_sent) + (Fundamental 
 
 ## Quick Reference
 
+### Environment Setup
+```bash
+# Activate conda environment
+conda activate nova_aetus
+
+# Or activate venv
+source venv/bin/activate
+```
+
 ### Training
 ```bash
 # Individual models
@@ -776,6 +809,31 @@ watch -n 1 nvidia-smi
 # Database
 docker exec -it timescaledb psql -U nova_user -d nova_aetus
 ```
+
+### Git Commands
+
+**Quick Commit & Push to GitHub (auto-generates message):**
+```bash
+./commit.sh
+```
+
+**Quick Commit & Push (with custom message):**
+```bash
+./commit.sh "Your commit message here"
+```
+
+**Git Alias (local commit only, no push):**
+```bash
+git ac "Your commit message here"
+```
+
+**Note**: The commit script automatically:
+- Stages all changes (`git add -A`)
+- Commits with your message (or auto-generated)
+- Handles pre-commit hook fixes automatically
+- Pushes to GitHub after successful commit
+
+Always review changes with `git status` or `git diff` before committing.
 
 ---
 
